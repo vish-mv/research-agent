@@ -1,0 +1,277 @@
+openapi: 3.1.0
+info:
+  title: Research Summarizer Agent
+  description: >
+    An AI-powered research agent that searches the web and reads page contents
+    to produce structured, markdown-formatted research summaries.
+
+
+    The `/chat` endpoint triggers a LangChain agent (powered by OpenAI) that
+    autonomously issues web searches via Serper, reads page contents via
+    trafilatura / BeautifulSoup, and synthesizes findings into a structured report.
+  version: 1.0.0
+  contact:
+    name: Research Agent API
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+tags:
+  - name: System
+    description: Health and operational endpoints
+  - name: Agent
+    description: AI research agent endpoints
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health Check
+      description: >
+        Returns the current operational status of the service along with
+        the configured OpenAI model and a UTC timestamp. Use this for
+        liveness and readiness probes.
+      tags:
+        - System
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+              example:
+                status: ok
+                version: 1.0.0
+                model: gpt-4o
+                timestamp: "2024-01-15T10:30:00Z"
+
+  /chat:
+    post:
+      operationId: runResearchAgent
+      summary: Run Research Agent
+      description: >
+        Accepts a research topic and runs the LangChain agent to produce a
+        comprehensive research summary.
+
+
+        **Agent workflow:**
+
+        1. Plans key sub-questions from the topic
+
+        2. Issues targeted `web_search` calls via Serper (Google)
+
+        3. Reads content from promising URLs using trafilatura + BeautifulSoup
+
+        4. Synthesizes all gathered information into a structured markdown report
+
+
+        **Output format** (in the `summary` field):
+
+        - Overview
+
+        - Key Findings
+
+        - Detailed Analysis
+
+        - Sources (with URLs)
+
+        - Research Confidence note
+
+
+        > ⚠️ This endpoint can take 20–90 seconds depending on topic complexity
+        and number of pages read. Plan timeouts accordingly.
+      tags:
+        - Agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+            examples:
+              fusion_energy:
+                summary: Fusion energy research
+                value:
+                  topic: Recent advances in nuclear fusion energy
+              llm_engineering:
+                summary: LLMs in software engineering
+                value:
+                  topic: The impact of large language models on software engineering productivity
+              climate:
+                summary: Climate tech
+                value:
+                  topic: Carbon capture technologies and their current viability
+      responses:
+        "200":
+          description: Research completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+              example:
+                topic: Recent advances in nuclear fusion energy
+                summary: |
+                  ## Research Summary: Recent advances in nuclear fusion energy
+
+                  ### Overview
+                  Nuclear fusion has seen significant milestones in the past two years,
+                  with both government-funded labs and private companies achieving record
+                  energy outputs and demonstrating net energy gain for the first time.
+
+                  ### Key Findings
+                  - NIF achieved ignition in December 2022, producing more energy than the laser energy delivered
+                  - Commonwealth Fusion Systems raised $1.8B and is targeting a demonstration plant by 2025
+                  - The ITER project in France is on track for first plasma in 2025
+
+                  ### Detailed Analysis
+                  ...
+
+                  ### Sources
+                  - [NIF Ignition Achievement](https://www.energy.gov/...)
+                  - [Commonwealth Fusion Systems](https://cfs.energy/...)
+
+                  ### Research Confidence
+                  High — multiple primary sources including government and peer-reviewed content confirmed findings.
+                duration_seconds: 34.7
+                timestamp: "2024-01-15T10:31:02Z"
+        "422":
+          description: Validation error — request body is malformed or missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+              example:
+                detail:
+                  - loc:
+                      - body
+                      - topic
+                    msg: field required
+                    type: missing
+        "500":
+          description: Agent internal error — e.g. LLM API failure, tool error, or timeout
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPError"
+              example:
+                detail: "Agent encountered an error: Connection timeout to OpenAI API"
+
+components:
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - topic
+      properties:
+        topic:
+          type: string
+          minLength: 3
+          maxLength: 500
+          description: The research topic or question for the agent to investigate.
+          examples:
+            - Recent advances in nuclear fusion energy
+            - How does the transformer architecture work in modern LLMs?
+            - Economic impact of remote work post-pandemic
+
+    ChatResponse:
+      type: object
+      required:
+        - topic
+        - summary
+        - duration_seconds
+        - timestamp
+      properties:
+        topic:
+          type: string
+          description: The original research topic provided in the request.
+        summary:
+          type: string
+          description: >
+            The full research summary in markdown format. Structure includes:
+            Overview, Key Findings, Detailed Analysis, Sources, and Research Confidence.
+        duration_seconds:
+          type: number
+          format: float
+          description: Total time taken by the agent to complete the research, in seconds.
+          examples:
+            - 34.7
+        timestamp:
+          type: string
+          format: date-time
+          description: UTC timestamp of when the response was generated (ISO 8601).
+          examples:
+            - "2024-01-15T10:31:02Z"
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - version
+        - model
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+          description: Always "ok" if the service is running.
+        version:
+          type: string
+          description: Current application version.
+          examples:
+            - 1.0.0
+        model:
+          type: string
+          description: The OpenAI model currently configured via the OPENAI_MODEL env var.
+          examples:
+            - gpt-4o
+            - gpt-4o-mini
+            - gpt-4-turbo
+        timestamp:
+          type: string
+          format: date-time
+          description: UTC timestamp of the health check response (ISO 8601).
+          examples:
+            - "2024-01-15T10:30:00Z"
+
+    HTTPError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message describing what went wrong.
+
+    ValidationError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: array
+          items:
+            $ref: "#/components/schemas/ValidationErrorItem"
+
+    ValidationErrorItem:
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      properties:
+        loc:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: integer
+          description: Location of the validation error (field path).
+        msg:
+          type: string
+          description: Human-readable error message.
+        type:
+          type: string
+          description: Error type identifier.
