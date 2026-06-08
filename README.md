@@ -52,7 +52,7 @@ Required `.env` values:
 | Variable | Description |
 |---|---|
 | `OPENAI_API_KEY` | Your OpenAI (or compatible) API key |
-| `OPENAI_BASE_URL` | API base URL (default: `https://api.openai.com/v1`) |
+| `OPENAI_BASE_URL` | API base URL injected at runtime |
 | `OPENAI_MODEL` | Model name (default: `gpt-4o`) |
 | `SERPER_API_KEY` | Your Serper API key from serper.dev |
 

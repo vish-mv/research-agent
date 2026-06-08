@@ -44,7 +44,7 @@ logger = logging.getLogger("research-agent")
 # ---------------------------------------------------------------------------
 class Settings(BaseSettings):
     openai_api_key: str = Field(..., env="OPENAI_API_KEY")
-    openai_base_url: str = Field("https://api.openai.com/v1", env="OPENAI_BASE_URL")
+    openai_base_url: str = Field(..., env="OPENAI_BASE_URL")
     openai_model: str = Field("gpt-4o", env="OPENAI_MODEL")
     serper_api_key: str = Field(..., env="SERPER_API_KEY")
     max_search_results: int = Field(5, env="MAX_SEARCH_RESULTS")
