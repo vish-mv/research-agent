@@ -216,10 +216,13 @@ def build_agent() -> AgentExecutor:
 
     llm = ChatOpenAI(
         model=settings.openai_model,
-        api_key=settings.openai_api_key,
+        api_key="",
         base_url=settings.openai_base_url,
+        default_headers={
+            "API-Key": settings.openai_api_key,
+            "Authorization": "",
+        },
         temperature=0.2,
-        max_retries=0,
     )
 
     tools = [web_search, read_page]
