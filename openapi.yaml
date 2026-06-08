@@ -47,6 +47,32 @@ paths:
                 model: gpt-4o
                 timestamp: "2024-01-15T10:30:00Z"
 
+  /debug-config:
+    get:
+      operationId: getDebugConfig
+      summary: Debug Configuration
+      description: >
+        Returns the current runtime configuration for debugging purposes.
+        The API key is never exposed — only a boolean indicating whether one
+        is set. Useful for verifying environment variable injection in
+        containerised or managed deployments.
+
+
+        > ⚠️ Do not expose this endpoint publicly in production environments.
+      tags:
+        - System
+      responses:
+        "200":
+          description: Current configuration values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DebugConfigResponse"
+              example:
+                openai_base_url: https://api.openai.com/v1
+                openai_model: gpt-4o
+                has_api_key: true
+
   /chat:
     post:
       operationId: runResearchAgent
@@ -203,6 +229,30 @@ components:
           description: UTC timestamp of when the response was generated (ISO 8601).
           examples:
             - "2024-01-15T10:31:02Z"
+
+    DebugConfigResponse:
+      type: object
+      required:
+        - openai_base_url
+        - openai_model
+        - has_api_key
+      properties:
+        openai_base_url:
+          type: string
+          format: uri
+          description: The configured OpenAI-compatible API base URL.
+          examples:
+            - https://api.openai.com/v1
+            - https://my-azure-instance.openai.azure.com/
+        openai_model:
+          type: string
+          description: The model name currently set via the OPENAI_MODEL env var.
+          examples:
+            - gpt-4o
+            - gpt-4o-mini
+        has_api_key:
+          type: boolean
+          description: True if OPENAI_API_KEY is set and non-empty; false otherwise.
 
     HealthResponse:
       type: object
