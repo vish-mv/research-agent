@@ -56,6 +56,11 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+logger.info("=" * 80)
+logger.info(f"OPENAI_BASE_URL = {settings.openai_base_url}")
+logger.info(f"OPENAI_MODEL = {settings.openai_model}")
+logger.info(f"OPENAI_API_KEY_PRESENT = {bool(settings.openai_api_key)}")
+logger.info("=" * 80)
 
 
 # ---------------------------------------------------------------------------
@@ -207,11 +212,14 @@ Be factual, objective, and thorough. If information is conflicting across source
 
 def build_agent() -> AgentExecutor:
     """Build and return a LangChain agent with the research tools."""
+    logger.info(f"Creating ChatOpenAI with base_url={settings.openai_base_url}")
+
     llm = ChatOpenAI(
         model=settings.openai_model,
         api_key=settings.openai_api_key,
         base_url=settings.openai_base_url,
         temperature=0.2,
+        max_retries=0,
     )
 
     tools = [web_search, read_page]
@@ -284,6 +292,13 @@ async def health() -> HealthResponse:
         timestamp=datetime.utcnow().isoformat() + "Z",
     )
 
+@app.get("/debug-config")
+async def debug_config():
+    return {
+        "openai_base_url": settings.openai_base_url,
+        "openai_model": settings.openai_model,
+        "has_api_key": bool(settings.openai_api_key),
+    }
 
 @app.post("/chat", response_model=ChatResponse, tags=["Agent"])
 async def chat(req: ChatRequest) -> ChatResponse:
@@ -305,7 +320,7 @@ async def chat(req: ChatRequest) -> ChatResponse:
         )
         summary: str = result.get("output", "No summary generated.")
     except Exception as exc:
-        logger.error(f"[/chat] Agent error: {exc}", exc_info=True)
+        logger.exception("Agent execution failed")
         raise HTTPException(
             status_code=500,
             detail=f"Agent encountered an error: {str(exc)}",
